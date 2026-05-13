@@ -1,0 +1,52 @@
+# macOS
+.DS_Store
+
+# Build outputs
+groktc
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+dist/
+build/
+
+# Test artifacts
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Go workspace files
+go.work
+go.work.sum
+vendor/
+
+# SQLite database files (app creates groktc.db in ~/.groktc)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Debug logs (app writes debug.log in ~/.groktc)
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+Thumbs.db

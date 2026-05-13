@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title id="page-title">Prompt</title>
+    <script src="vendor/tailwind.js"></script>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="bg-slate-50 text-slate-900 antialiased">
+    <main class="mx-auto flex min-h-screen max-w-3xl flex-col gap-4 px-6 py-6">
+      <header>
+        <h1 id="header-title" class="text-xl font-semibold">Provide Instructions</h1>
+        <p id="header-subtitle" class="mt-1 text-sm text-slate-600">
+          Pick or write the prompt that will be used.
+        </p>
+      </header>
+
+      <section id="files-panel" class="hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-700">Files to transcribe</h2>
+            <p id="files-count" class="text-xs text-slate-500"></p>
+          </div>
+          <div class="flex gap-2 text-xs">
+            <button type="button" id="files-all"
+              class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">All</button>
+            <button type="button" id="files-none"
+              class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">None</button>
+          </div>
+        </div>
+        <ul id="files-list" class="max-h-48 overflow-y-auto px-2 py-2 text-sm"></ul>
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-200 px-4 py-2">
+          <h2 class="text-sm font-semibold text-slate-700">Saved prompt</h2>
+        </div>
+        <div class="px-4 py-3">
+          <select id="saved-select"
+            class="w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400">
+          </select>
+        </div>
+      </section>
+
+      <section class="flex flex-col rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div class="border-b border-slate-200 px-4 py-2">
+          <h2 class="text-sm font-semibold text-slate-700">Prompt</h2>
+        </div>
+        <div class="flex flex-col gap-3 px-4 py-3">
+          <textarea id="prompt-text" rows="14"
+            placeholder="Paste your instructions here..."
+            class="w-full resize-y rounded border border-slate-300 bg-white px-3 py-2 font-mono text-sm leading-relaxed focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400"></textarea>
+
+          <button type="button" id="btn-load-file"
+            class="self-start rounded border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium hover:bg-slate-100">
+            Load from File…
+          </button>
+
+          <div id="helper" class="hidden text-xs text-slate-600"></div>
+
+          <div id="name-row" class="hidden">
+            <label for="prompt-name" class="text-xs font-medium text-slate-600">Prompt name</label>
+            <input id="prompt-name" type="text" placeholder="e.g. interview-cleanup"
+              class="mt-1 w-full rounded border border-slate-300 bg-white px-3 py-2 text-sm focus:border-slate-500 focus:outline-none focus:ring-1 focus:ring-slate-400" />
+          </div>
+        </div>
+      </section>
+
+      <footer class="flex flex-wrap justify-end gap-2 pb-6">
+        <!-- Flow mode buttons -->
+        <button type="button" id="btn-cancel"
+          class="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">Cancel</button>
+        <button type="button" id="btn-use-once" data-action="useOnce"
+          class="hidden rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Use Once</button>
+        <button type="button" id="btn-use-save" data-action="useAndSave"
+          class="hidden rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">Use and Save</button>
+        <button type="button" id="btn-use" data-action="use"
+          class="hidden rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Use</button>
+        <button type="button" id="btn-update-save" data-action="updateAndSave"
+          class="hidden rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">Update and Save</button>
+        <!-- Manage mode buttons -->
+        <button type="button" id="btn-save" data-action="save"
+          class="hidden rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700">Save</button>
+        <button type="button" id="btn-delete" data-action="delete"
+          class="hidden rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">Delete</button>
+        <button type="button" id="btn-close" data-action="close"
+          class="hidden rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-100">Close</button>
+      </footer>
+    </main>
+
+    <dialog id="modal" class="rounded-lg border border-slate-200 p-0 shadow-xl backdrop:bg-slate-900/40">
+      <form method="dialog" class="flex w-80 flex-col gap-3 p-5 text-sm">
+        <h3 id="modal-title" class="text-base font-semibold text-slate-900"></h3>
+        <p id="modal-body" class="text-slate-600"></p>
+        <div class="flex justify-end">
+          <button value="ok" class="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>
