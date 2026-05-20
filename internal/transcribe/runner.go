@@ -38,7 +38,7 @@ func NewRunner() *Runner {
 			return NewExecFFmpegConverter()
 		},
 		URLDownloaderFactory: func() URLDownloader {
-			return NewExecYTDLPDownloader()
+			return NewYtgoDownloader()
 		},
 	}
 }

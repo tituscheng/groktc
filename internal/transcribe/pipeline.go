@@ -119,8 +119,8 @@ func (p *filePipeline) processURL(ctx context.Context, task FileTask, outputPath
 		dir = "."
 	}
 	base := strings.TrimSuffix(filepath.Base(outputPath), filepath.Ext(outputPath))
-	// Use a temp path but do NOT pre-create the file — yt-dlp sees an empty
-	// existing file and skips the download, then post-processing fails.
+	// Use a temp path but do NOT pre-create the file — some downloaders see
+	// an empty existing file and skip the download, then post-processing fails.
 	tmpMp3, err := os.CreateTemp(dir, "."+base+".*.tmp.mp3")
 	if err != nil {
 		slog.Error("create temp mp3 failed", "dir", dir, "base", base, "error", err)
@@ -130,7 +130,7 @@ func (p *filePipeline) processURL(ctx context.Context, task FileTask, outputPath
 	tmpMp3.Close()
 	os.Remove(tmpMp3Path)
 
-	msg := fmt.Sprintf("%s downloading audio (yt-dlp)...", task.InputPath)
+	msg := fmt.Sprintf("%s downloading audio...", task.InputPath)
 	if err := p.withSpinner(msg, func() error {
 		return p.downloader.DownloadAudio(ctx, task.InputPath, tmpMp3Path)
 	}); err != nil {

@@ -193,7 +193,7 @@ func TestRunnerNoFilesToProcess(t *testing.T) {
 	require.Error(t, err)
 }
 
-// fakeInstalledDownloader always reports yt-dlp as installed.
+// fakeInstalledDownloader always reports the downloader as installed.
 type fakeInstalledDownloader struct {
 	title    string
 	id       string
@@ -221,18 +221,18 @@ func (f *fakeInstalledDownloader) DownloadAudio(_ context.Context, _, outputPath
 	return os.WriteFile(outputPath, []byte("fake mp3"), 0o644)
 }
 
-// fakeMissingDownloader reports yt-dlp as not installed.
+// fakeMissingDownloader reports the downloader as not installed.
 type fakeMissingDownloader struct{}
 
-func (f *fakeMissingDownloader) CheckInstalled() error { return ErrYTDLPNotFound }
+func (f *fakeMissingDownloader) CheckInstalled() error { return ErrFFmpegNotFound }
 func (f *fakeMissingDownloader) GetTitle(_ context.Context, _ string) (string, error) {
-	return "", ErrYTDLPNotFound
+	return "", ErrFFmpegNotFound
 }
 func (f *fakeMissingDownloader) GetTitleAndID(_ context.Context, _ string) (string, string, error) {
-	return "", "", ErrYTDLPNotFound
+	return "", "", ErrFFmpegNotFound
 }
 func (f *fakeMissingDownloader) DownloadAudio(_ context.Context, _, _ string) error {
-	return ErrYTDLPNotFound
+	return ErrFFmpegNotFound
 }
 
 func newTestRunnerWithDownloader() *Runner {
@@ -309,7 +309,7 @@ func TestRunnerURLTaskForceOverridesSkip(t *testing.T) {
 	require.False(t, resolved[0].Skipped)
 }
 
-func TestRunnerURLTaskChecksYTDLP(t *testing.T) {
+func TestRunnerURLTaskChecksDownloader(t *testing.T) {
 	r := newTestRunner()
 	r.URLDownloaderFactory = func() URLDownloader { return &fakeMissingDownloader{} }
 	r.LookupEnv = func(string) string { return "key" }
@@ -317,7 +317,7 @@ func TestRunnerURLTaskChecksYTDLP(t *testing.T) {
 	_, err := r.Run(context.Background(), Options{
 		Args: []string{"https://example.com/video"},
 	})
-	require.ErrorIs(t, err, ErrYTDLPNotFound)
+	require.ErrorIs(t, err, ErrFFmpegNotFound)
 }
 
 func TestRunnerURLTaskEndToEnd(t *testing.T) {

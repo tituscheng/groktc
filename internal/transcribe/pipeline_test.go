@@ -315,7 +315,7 @@ func TestPipelineURLDownloadFailure(t *testing.T) {
 
 	stt := &fakeSTTClient{}
 	conv := &fakeFFmpegConverter{}
-	downloader := &fakeURLDownloader{err: fmt.Errorf("yt-dlp error")}
+	downloader := &fakeURLDownloader{err: fmt.Errorf("download error")}
 
 	p := newFilePipeline(stt, conv, downloader)
 	_, err := p.Run(context.Background(), FileTask{

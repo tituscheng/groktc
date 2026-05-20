@@ -65,7 +65,7 @@ groktc transcribe audio.mp3
 # Transcribe a video (ffmpeg extracts audio automatically)
 groktc transcribe video.mp4
 
-# Transcribe a YouTube URL (requires yt-dlp)
+# Transcribe a YouTube URL
 groktc transcribe "https://youtube.com/watch?v=..."
 
 # Force overwrite existing transcripts
@@ -191,8 +191,7 @@ For advanced use cases, import individual packages directly:
 
 - **Go 1.26.2** or later
 - **xAI API key** ([x.ai](https://x.ai))
-- **ffmpeg** (optional, for MP4 transcription)
-- **yt-dlp** (optional, for URL transcription)
+- **ffmpeg** (optional, for MP4 and YouTube URL transcription)
 
 ---
 
