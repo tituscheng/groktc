@@ -122,3 +122,119 @@ func TestEndsSentence(t *testing.T) {
 	require.False(t, endsSentence("hello"))
 	require.False(t, endsSentence("mid,"))
 }
+
+// --- Spec-compliance tests --------------------------------------------------
+
+func TestEscapeVTTText(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"AT&T", "AT&amp;T"},
+		{"5 < 10", "5 &lt; 10"},
+		{"A > B", "A &gt; B"},
+		{"look --> there", "look --&gt; there"},
+		{"multi\r\nline", "multi\nline"},
+		{"multi\rline", "multi\nline"},
+		{"blank\n\nline", "blank\nline"},
+		{"deep\n\n\nblank", "deep\nblank"},
+		{"&<>混合", "&amp;&lt;&gt;混合"},
+		{"normal text", "normal text"},
+	}
+	for _, tc := range cases {
+		require.Equal(t, tc.want, escapeVTTText(tc.in), "input=%q", tc.in)
+	}
+}
+
+func TestSanitizeWords(t *testing.T) {
+	// Empty words removed.
+	out := sanitizeWords([]Word{
+		{Text: "", Start: 0, End: 1},
+		{Text: "   ", Start: 0, End: 1},
+		{Text: "hello", Start: 0, End: 1},
+	})
+	require.Len(t, out, 1)
+	require.Equal(t, "hello", out[0].Text)
+
+	// Out-of-order words sorted.
+	out = sanitizeWords([]Word{
+		{Text: "world", Start: 2, End: 3},
+		{Text: "hello", Start: 0, End: 1},
+	})
+	require.Len(t, out, 2)
+	require.Equal(t, "hello", out[0].Text)
+	require.Equal(t, "world", out[1].Text)
+
+	// Reversed start/end swapped.
+	out = sanitizeWords([]Word{
+		{Text: "oops", Start: 5, End: 2},
+	})
+	require.Len(t, out, 1)
+	require.Equal(t, 2.0, out[0].Start)
+	require.Equal(t, 5.0, out[0].End)
+
+	// Zero-duration padded.
+	out = sanitizeWords([]Word{
+		{Text: "flash", Start: 1.0, End: 1.0},
+	})
+	require.Len(t, out, 1)
+	require.Equal(t, 1.0, out[0].Start)
+	require.Equal(t, 1.001, out[0].End)
+}
+
+func TestBuildVTTWithSpecialChars(t *testing.T) {
+	words := []Word{
+		{Text: "AT&T", Start: 0, End: 1},
+		{Text: "costs", Start: 1.1, End: 1.5},
+		{Text: "<", Start: 1.6, End: 1.7},
+		{Text: "$10.", Start: 1.8, End: 2.2},
+	}
+	out := BuildVTT(STTResponse{Words: words, Duration: 2.2})
+
+	require.Contains(t, out, "AT&amp;T")
+	require.Contains(t, out, "&lt;")
+	require.NotContains(t, out, "AT&T")
+	require.NotContains(t, out, " < ")
+}
+
+func TestBuildVTTWithBlankLines(t *testing.T) {
+	// Fallback path with text containing blank lines and carriage returns.
+	// escapeVTTText normalizes line endings and collapses blank lines;
+	// wrapText then collapses all whitespace into space-separated words.
+	out := BuildVTT(STTResponse{Text: "line one\r\n\r\nline two", Duration: 5})
+	require.Contains(t, out, "line one line two")
+	// The file should have exactly two \n\n sequences: one after WEBVTT, one after the cue.
+	require.Equal(t, 2, strings.Count(out, "\n\n"), "no extra blank lines inside cue text")
+}
+
+func TestBuildVTTOutOfOrderWords(t *testing.T) {
+	words := []Word{
+		{Text: "world.", Start: 2.0, End: 2.5},
+		{Text: "Hello", Start: 0.0, End: 0.5},
+	}
+	out := BuildVTT(STTResponse{Words: words, Duration: 2.5})
+
+	// After sanitization words are sorted; both fit in one cue under 6s.
+	require.Contains(t, out, "Hello world.")
+	// The cue spans from the first word to the last.
+	require.Contains(t, out, "00:00:00.000 --> 00:00:02.500")
+}
+
+func TestBuildVTTZeroDurationWords(t *testing.T) {
+	words := []Word{
+		{Text: "snap", Start: 1.0, End: 1.0},
+	}
+	out := BuildVTT(STTResponse{Words: words, Duration: 1.0})
+
+	// Cue must have end > start.
+	require.Contains(t, out, "00:00:01.000 --> 00:00:01.001")
+	require.Contains(t, out, "snap")
+}
+
+func TestBuildVTTWithArrowInText(t *testing.T) {
+	// The literal "-->" must not be mistaken for a cue timing separator.
+	out := BuildVTT(STTResponse{Text: "look --> there", Duration: 5})
+	require.Contains(t, out, "look --&gt; there")
+	// There should still be exactly one timing line.
+	require.Equal(t, 1, strings.Count(out, " --> "))
+}

@@ -23,8 +23,9 @@ type Word struct {
 }
 
 // TranscriptionResult holds the output of an xAI speech-to-text call.
-// Words carries the raw per-word timings and VTT is a ready-to-write WebVTT
-// document built from them; both come from the same transcription call.
+// Words carries the raw per-word timings and VTT is a ready-to-write,
+// spec-compliant WebVTT document built from them; both come from the same
+// transcription call.
 type TranscriptionResult struct {
 	Text     string
 	Language string

@@ -3,6 +3,7 @@ package transcribe
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -26,12 +27,13 @@ type cue struct {
 	text  string
 }
 
-// BuildVTT renders a WebVTT document from an STT response. It groups
-// word-level timings into sentence-based cues. If the response carries no
-// word timings, it falls back to a single cue spanning the whole clip so the
+// BuildVTT renders a spec-compliant WebVTT document from an STT response. It
+// groups word-level timings into sentence-based cues. If the response carries
+// no word timings, it falls back to a single cue spanning the whole clip so the
 // output is always a valid .vtt.
 func BuildVTT(resp STTResponse) string {
-	cues := groupCues(resp.Words)
+	words := sanitizeWords(resp.Words)
+	cues := groupCues(words)
 	if len(cues) == 0 {
 		end := resp.Duration
 		if end <= 0 {
@@ -43,12 +45,38 @@ func BuildVTT(resp STTResponse) string {
 
 	var b strings.Builder
 	b.WriteString("WEBVTT\n\n")
-	for _, c := range cues {
-		fmt.Fprintf(&b, "%s --> %s\n", formatTimestamp(c.start), formatTimestamp(c.end))
-		b.WriteString(wrapText(c.text))
+	for i := range cues {
+		ensureCueDuration(&cues[i])
+		fmt.Fprintf(&b, "%s --> %s\n", formatTimestamp(cues[i].start), formatTimestamp(cues[i].end))
+		b.WriteString(escapeVTTText(wrapText(cues[i].text)))
 		b.WriteString("\n\n")
 	}
 	return b.String()
+}
+
+// sanitizeWords returns a cleaned copy of the input word slice:
+//   - Empty/whitespace-only words are removed.
+//   - Words are sorted by Start time ascending.
+//   - If Start > End, they are swapped.
+//   - Zero-duration words are padded so End >= Start+0.001.
+func sanitizeWords(words []Word) []Word {
+	filtered := make([]Word, 0, len(words))
+	for _, w := range words {
+		if strings.TrimSpace(w.Text) == "" {
+			continue
+		}
+		if w.Start > w.End {
+			w.Start, w.End = w.End, w.Start
+		}
+		if w.End < w.Start+0.001 {
+			w.End = w.Start + 0.001
+		}
+		filtered = append(filtered, w)
+	}
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].Start < filtered[j].Start
+	})
+	return filtered
 }
 
 // groupCues splits words into cues, starting a new cue after a word that ends
@@ -110,7 +138,7 @@ func cueChars(words []Word) int {
 // endsSentence reports whether a word ends a sentence, ignoring trailing
 // closing quotes/brackets (e.g. `dog."` or `done!)`).
 func endsSentence(word string) bool {
-	s := strings.TrimRight(strings.TrimSpace(word), "\"'”’)]}")
+	s := strings.TrimRight(strings.TrimSpace(word), "\"'\u201d\u2019)]}")
 	if s == "" {
 		return false
 	}
@@ -161,4 +189,36 @@ func wrapText(s string) string {
 	}
 	lines = append(lines, line)
 	return strings.Join(lines, "\n")
+}
+
+// escapeVTTText escapes cue text so it is safe to embed in a WebVTT file.
+// It normalizes line endings, collapses blank lines (which would otherwise end
+// the cue), and escapes characters that have special meaning in WebVTT:
+//   - & → &amp;
+//   - < → &lt;
+//   - > → &gt;
+//
+// Escaping '>' also neutralizes literal "-->" sequences, preventing them from
+// being misinterpreted as cue timing separators.
+func escapeVTTText(s string) string {
+	// Normalize all line endings to \n.
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	// Collapse consecutive blank lines — a blank line ends a cue in WebVTT.
+	for strings.Contains(s, "\n\n") {
+		s = strings.ReplaceAll(s, "\n\n", "\n")
+	}
+	// Escape special characters.
+	s = strings.ReplaceAll(s, "&", "&amp;")
+	s = strings.ReplaceAll(s, "<", "&lt;")
+	s = strings.ReplaceAll(s, ">", "&gt;")
+	return s
+}
+
+// ensureCueDuration guarantees that a cue's end time is strictly greater than
+// its start time. If they are equal (or end < start), end is bumped by 0.001s.
+func ensureCueDuration(c *cue) {
+	if c.end <= c.start {
+		c.end = c.start + 0.001
+	}
 }

@@ -57,7 +57,7 @@ groktc markdown transcript.txt --json
 ### `groktc transcribe` — Transcribe audio/video
 
 Each run writes **two files** from a single Speech-to-Text call: a plain-text
-transcript (`.txt`) and a WebVTT subtitle file (`.vtt`) with word-level timing.
+transcript (`.txt`) and a spec-compliant WebVTT subtitle file (`.vtt`) with word-level timing.
 
 ```bash
 # Transcribe an audio file -> audio.txt + audio.vtt
@@ -146,8 +146,8 @@ func main() {
 
 ### Transcription
 
-A single call returns the transcript, per-word timings, and a ready-to-write
-WebVTT document:
+A single call returns the transcript, per-word timings, and a ready-to-write,
+spec-compliant WebVTT document:
 
 ```go
 result, err := client.TranscribeAudio(ctx, "interview.mp3")
