@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	"ytgo/pkg/ytgo/api"
+	"github.com/tituscheng/ytgo/pkg/ytgo/api"
 )
 
 // URLDownloader abstracts the ability to check for a downloader, extract
