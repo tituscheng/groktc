@@ -9,7 +9,7 @@ require (
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
-	github.com/tituscheng/ytgo v0.0.0
+	github.com/tituscheng/ytgo v0.0.0-20260520022359-c0cdc7db8772
 	github.com/webview/webview_go v0.0.0-20240831120633-6173450d4dd6
 	golang.org/x/sync v0.20.0
 	gorm.io/driver/sqlite v1.6.0
@@ -47,5 +47,3 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/tituscheng/ytgo => /tmp/ytgo
