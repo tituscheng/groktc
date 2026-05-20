@@ -9,16 +9,14 @@ A Go CLI tool and library for working with the **xAI API** (Grok). Convert trans
 ### As a CLI tool
 
 ```bash
-go install github.com/example/groktc@latest
+go install github.com/tituscheng/groktc@latest
 ```
 
 ### As a Go library
 
 ```bash
-go get github.com/example/groktc/pkg/groktc
+go get github.com/tituscheng/groktc/pkg/groktc
 ```
-
-> **Note:** Replace `github.com/example/groktc` with your actual module path before publishing.
 
 ---
 
@@ -125,7 +123,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/example/groktc/pkg/groktc"
+    "github.com/tituscheng/groktc/pkg/groktc"
 )
 
 func main() {
