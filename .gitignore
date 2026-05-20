@@ -1,8 +1,8 @@
 # macOS
 .DS_Store
 
-# Build outputs
-groktc
+# Build outputs (anchored to repo root so it does not match pkg/groktc/)
+/groktc
 *.exe
 *.exe~
 *.dll

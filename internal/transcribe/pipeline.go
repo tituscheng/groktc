@@ -194,6 +194,12 @@ func (p *filePipeline) processAudio(ctx context.Context, audioPath, outputPath s
 		return resp.Duration, fmt.Errorf("write transcript to %q: %w", outputPath, err)
 	}
 
+	vttOut := vttPath(outputPath)
+	if err := os.WriteFile(vttOut, []byte(BuildVTT(resp)), 0o644); err != nil {
+		slog.Error("write VTT failed", "output_path", vttOut, "error", err)
+		return resp.Duration, fmt.Errorf("write VTT to %q: %w", vttOut, err)
+	}
+
 	return resp.Duration, nil
 }
 

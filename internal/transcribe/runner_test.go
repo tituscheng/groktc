@@ -270,6 +270,9 @@ func TestRunnerURLTaskSkipsExistingTranscript(t *testing.T) {
 	dir := t.TempDir()
 	existingTxt := filepath.Join(dir, "Test Title.abc123.txt")
 	require.NoError(t, os.WriteFile(existingTxt, []byte("existing"), 0o644))
+	// Both outputs must exist for the task to be skipped.
+	existingVTT := filepath.Join(dir, "Test Title.abc123.vtt")
+	require.NoError(t, os.WriteFile(existingVTT, []byte("WEBVTT"), 0o644))
 
 	r := newTestRunnerWithDownloader()
 	tasks := []FileTask{
@@ -286,7 +289,7 @@ func TestRunnerURLTaskSkipsExistingTranscript(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, resolved, 1)
 	require.True(t, resolved[0].Skipped)
-	require.Contains(t, resolved[0].SkipReason, "already exists")
+	require.Contains(t, resolved[0].SkipReason, "already exist")
 }
 
 func TestRunnerURLTaskForceOverridesSkip(t *testing.T) {

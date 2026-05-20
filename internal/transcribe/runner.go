@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tituscheng/groktc/pkg/fileutil"
 	"github.com/tituscheng/groktc/pkg/runner"
 	"github.com/tituscheng/groktc/internal/style"
 )
@@ -97,12 +96,13 @@ func (r *Runner) Run(ctx context.Context, opts Options) (RunResult, error) {
 		elapsed := time.Since(start)
 
 		tr := TranscriptionResult{
-			InputPath:    task.InputPath,
-			OutputPath:   task.OutputPath,
-			Duration:     duration,
-			Elapsed:      elapsed.Seconds(),
-			CostEstimate: calculateCost(duration),
-			Success:      err == nil,
+			InputPath:     task.InputPath,
+			OutputPath:    task.OutputPath,
+			VTTOutputPath: vttPath(task.OutputPath),
+			Duration:      duration,
+			Elapsed:       elapsed.Seconds(),
+			CostEstimate:  calculateCost(duration),
+			Success:       err == nil,
 		}
 		if err != nil {
 			tr.Error = err.Error()
@@ -165,9 +165,9 @@ func (r *Runner) resolveURLTasks(ctx context.Context, tasks []FileTask, force bo
 			outName = title + ".txt"
 		}
 		tasks[i].OutputPath = filepath.Clean(outName)
-		if fileutil.ShouldSkipOutput(tasks[i].OutputPath, force) {
+		if shouldSkipOutputs(tasks[i].OutputPath, force) {
 			tasks[i].Skipped = true
-			tasks[i].SkipReason = "matching non-empty transcript file already exists"
+			tasks[i].SkipReason = "matching non-empty transcript and VTT files already exist"
 		}
 	}
 	return tasks, nil

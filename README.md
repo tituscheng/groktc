@@ -58,19 +58,28 @@ groktc markdown transcript.txt --json
 
 ### `groktc transcribe` — Transcribe audio/video
 
+Each run writes **two files** from a single Speech-to-Text call: a plain-text
+transcript (`.txt`) and a WebVTT subtitle file (`.vtt`) with word-level timing.
+
 ```bash
-# Transcribe an audio file
+# Transcribe an audio file -> audio.txt + audio.vtt
 groktc transcribe audio.mp3
 
-# Transcribe a video (ffmpeg extracts audio automatically)
+# Transcribe a video (ffmpeg extracts audio automatically) -> video.txt + video.vtt
 groktc transcribe video.mp4
 
-# Transcribe a YouTube URL
+# Transcribe a YouTube URL -> <title>.<id>.txt + <title>.<id>.vtt
 groktc transcribe "https://youtube.com/watch?v=..."
+
+# Custom output base path -> notes.txt + notes.vtt (extension is swapped per format)
+groktc transcribe audio.mp3 --output notes.txt
 
 # Force overwrite existing transcripts
 groktc transcribe audio.mp3 --force
 ```
+
+> A file is skipped only when **both** its `.txt` and `.vtt` already exist; if
+> either is missing the file is re-transcribed. Use `--force` to always overwrite.
 
 ### `groktc tokenize` — Estimate token usage and cost
 
@@ -139,6 +148,9 @@ func main() {
 
 ### Transcription
 
+A single call returns the transcript, per-word timings, and a ready-to-write
+WebVTT document:
+
 ```go
 result, err := client.TranscribeAudio(ctx, "interview.mp3")
 if err != nil {
@@ -147,6 +159,16 @@ if err != nil {
 fmt.Println("Language:", result.Language)
 fmt.Println("Duration:", result.Duration)
 fmt.Println("Text:", result.Text)
+
+// Write subtitles straight to disk.
+if err := os.WriteFile("interview.vtt", []byte(result.VTT), 0o644); err != nil {
+    log.Fatal(err)
+}
+
+// Or build your own output from the raw word timings.
+for _, w := range result.Words {
+    fmt.Printf("[%.2f-%.2f] %s\n", w.Start, w.End, w.Text)
+}
 ```
 
 ### Token counting

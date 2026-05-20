@@ -16,7 +16,15 @@ import (
 )
 
 func TestHTTPSTTClientSuccess(t *testing.T) {
-	want := STTResponse{Text: "hello world", Language: "English", Duration: 2.5}
+	want := STTResponse{
+		Text:     "hello world",
+		Language: "English",
+		Duration: 2.5,
+		Words: []Word{
+			{Text: "hello", Start: 0.1, End: 0.4},
+			{Text: "world", Start: 0.5, End: 0.9},
+		},
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPost, r.Method)
 		require.Equal(t, "Bearer testkey", r.Header.Get("Authorization"))
@@ -52,6 +60,7 @@ func TestHTTPSTTClientSuccess(t *testing.T) {
 	require.Equal(t, want.Text, got.Text)
 	require.Equal(t, want.Language, got.Language)
 	require.InDelta(t, want.Duration, got.Duration, 0.001)
+	require.Equal(t, want.Words, got.Words)
 }
 
 func TestHTTPSTTClientRetriesOn500(t *testing.T) {

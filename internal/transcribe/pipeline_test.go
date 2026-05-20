@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -90,7 +91,14 @@ func TestPipelineMP3CallsSTTAndWritesTxt(t *testing.T) {
 	output := filepath.Join(dir, "audio.txt")
 	require.NoError(t, os.WriteFile(input, []byte("audio data"), 0o644))
 
-	stt := &fakeSTTClient{result: STTResponse{Text: "hello world", Duration: 12.5}}
+	stt := &fakeSTTClient{result: STTResponse{
+		Text:     "hello world",
+		Duration: 12.5,
+		Words: []Word{
+			{Text: "hello", Start: 0.0, End: 0.5},
+			{Text: "world.", Start: 0.6, End: 1.0},
+		},
+	}}
 	conv := &fakeFFmpegConverter{}
 
 	p := newFilePipeline(stt, conv, nil)
@@ -108,6 +116,12 @@ func TestPipelineMP3CallsSTTAndWritesTxt(t *testing.T) {
 	content, readErr := os.ReadFile(output)
 	require.NoError(t, readErr)
 	require.Equal(t, "hello world", string(content))
+
+	// Verify a sibling .vtt was written from the same call.
+	vtt, vttErr := os.ReadFile(filepath.Join(dir, "audio.vtt"))
+	require.NoError(t, vttErr)
+	require.True(t, strings.HasPrefix(string(vtt), "WEBVTT"))
+	require.Contains(t, string(vtt), "hello world.")
 }
 
 func TestPipelineMP4CallsConverterThenSTT(t *testing.T) {

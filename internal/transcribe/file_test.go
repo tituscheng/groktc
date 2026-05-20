@@ -64,6 +64,7 @@ func TestDiscoverMediaTasksSkipsExistingTranscript(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "done.mp3"), "audio")
 	mustWriteFile(t, filepath.Join(dir, "done.txt"), "transcript")
+	mustWriteFile(t, filepath.Join(dir, "done.vtt"), "WEBVTT")
 	mustWriteFile(t, filepath.Join(dir, "todo.mp3"), "audio")
 
 	tasks, err := discoverMediaTasks(dir, false)
@@ -82,10 +83,24 @@ func TestDiscoverMediaTasksSkipsExistingTranscript(t *testing.T) {
 	require.Equal(t, 1, pending)
 }
 
+func TestDiscoverMediaTasksDoesNotSkipWhenVTTMissing(t *testing.T) {
+	// Only the .txt exists; the .vtt is missing, so the task must re-run to
+	// produce the missing subtitle file.
+	dir := t.TempDir()
+	mustWriteFile(t, filepath.Join(dir, "partial.mp3"), "audio")
+	mustWriteFile(t, filepath.Join(dir, "partial.txt"), "transcript")
+
+	tasks, err := discoverMediaTasks(dir, false)
+	require.NoError(t, err)
+	require.Len(t, tasks, 1)
+	require.False(t, tasks[0].Skipped)
+}
+
 func TestDiscoverMediaTasksForceOverridesSkip(t *testing.T) {
 	dir := t.TempDir()
 	mustWriteFile(t, filepath.Join(dir, "done.mp3"), "audio")
 	mustWriteFile(t, filepath.Join(dir, "done.txt"), "transcript")
+	mustWriteFile(t, filepath.Join(dir, "done.vtt"), "WEBVTT")
 
 	tasks, err := discoverMediaTasks(dir, true)
 	require.NoError(t, err)

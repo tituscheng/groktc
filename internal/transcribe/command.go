@@ -12,10 +12,12 @@ func NewCommand() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "transcribe [file|url ...]",
-		Short: "Convert audio/video files (mp4, mp3) or URLs into plain text transcripts",
-		Long: "Convert one or more audio/video files (.mp4, .mp3) or URLs into plain text " +
-			"transcripts using xAI Speech-to-Text. With no arguments, discovers media files " +
-			"in the current directory. URLs are downloaded as audio before transcription.",
+		Short: "Transcribe audio/video files (mp4, mp3) or URLs into text and VTT subtitles",
+		Long: "Convert one or more audio/video files (.mp4, .mp3) or URLs into a plain-text " +
+			"transcript (.txt) and a WebVTT subtitle file (.vtt) using xAI Speech-to-Text. " +
+			"Both files are written from a single transcription call. With no arguments, " +
+			"discovers media files in the current directory. URLs are downloaded as audio " +
+			"before transcription.",
 		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -42,7 +44,7 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVarP(&opts.Force, "force", "f", false, "overwrite existing non-empty transcript files")
-	cmd.Flags().StringVarP(&opts.OutputPath, "output", "o", "", "custom output file path (default: <title>.<id>.txt for URLs, <basename>.txt for local files)")
+	cmd.Flags().StringVarP(&opts.OutputPath, "output", "o", "", "custom output base path; .txt and .vtt are written by swapping the extension (default: <title>.<id> for URLs, <basename> for local files)")
 	cmd.Flags().BoolVar(&opts.JSON, "json", false, "output results as JSON to stdout")
 
 	return cmd

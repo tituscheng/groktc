@@ -10,6 +10,14 @@ import (
 	"github.com/tituscheng/groktc/pkg/fileutil"
 )
 
+// shouldSkipOutputs reports whether a task can be skipped because BOTH of its
+// outputs (the .txt transcript and the .vtt subtitles) already exist non-empty.
+// --force (force=true) always returns false. Reuses fileutil.ShouldSkipOutput.
+func shouldSkipOutputs(txtPath string, force bool) bool {
+	return fileutil.ShouldSkipOutput(txtPath, force) &&
+		fileutil.ShouldSkipOutput(vttPath(txtPath), force)
+}
+
 func ResolveTasks(args []string, force bool, outputPath string) ([]FileTask, error) {
 	if len(args) == 0 {
 		return discoverMediaTasks(".", force)
@@ -32,9 +40,9 @@ func resolveExplicitTasks(args []string, force bool, outputPath string) ([]FileT
 			}
 			seen[arg] = struct{}{}
 			task := taskForURL(arg, outputPath)
-			if fileutil.ShouldSkipOutput(task.OutputPath, force) {
+			if shouldSkipOutputs(task.OutputPath, force) {
 				task.Skipped = true
-				task.SkipReason = "matching non-empty transcript file already exists"
+				task.SkipReason = "matching non-empty transcript and VTT files already exist"
 			}
 			tasks = append(tasks, task)
 			continue
@@ -76,9 +84,9 @@ func resolveSingleTask(path string, force bool, outputPath string) (FileTask, er
 	}
 
 	task := taskForMediaFile(path, kind, outputPath)
-	if fileutil.ShouldSkipOutput(task.OutputPath, force) {
+	if shouldSkipOutputs(task.OutputPath, force) {
 		task.Skipped = true
-		task.SkipReason = "matching non-empty transcript file already exists"
+		task.SkipReason = "matching non-empty transcript and VTT files already exist"
 	}
 	return task, nil
 }
@@ -100,9 +108,9 @@ func discoverMediaTasks(dir string, force bool) ([]FileTask, error) {
 			continue
 		}
 		task := taskForMediaFile(filepath.Join(dir, name), kind, "")
-		if fileutil.ShouldSkipOutput(task.OutputPath, force) {
+		if shouldSkipOutputs(task.OutputPath, force) {
 			task.Skipped = true
-			task.SkipReason = "matching non-empty transcript file already exists"
+			task.SkipReason = "matching non-empty transcript and VTT files already exist"
 		}
 		tasks = append(tasks, task)
 	}
