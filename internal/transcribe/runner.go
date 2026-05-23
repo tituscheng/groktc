@@ -101,7 +101,7 @@ func (r *Runner) Run(ctx context.Context, opts Options) (RunResult, error) {
 			VTTOutputPath: vttPath(task.OutputPath),
 			Duration:      duration,
 			Elapsed:       elapsed.Seconds(),
-			CostEstimate:  calculateCost(duration),
+			CostEstimate:  CalculateSTTCost(duration),
 			Success:       err == nil,
 		}
 		if err != nil {

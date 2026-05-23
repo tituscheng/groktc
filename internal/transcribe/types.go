@@ -5,12 +5,13 @@ import (
 )
 
 const (
-	DefaultConcurrency  = 4
-	MaxAudioBytes       = 500 * 1024 * 1024 // 500 MB
-	STTEndpoint         = "https://api.x.ai/v1/stt"
-	XAIAPIKeyEnv        = "XAI_API_KEY"
-	XAIBaseURL          = "https://api.x.ai/v1"
-	STTCostPerMinuteUSD = 0.0 // placeholder — update with actual xAI STT pricing
+	DefaultConcurrency         = 4
+	MaxAudioBytes              = 500 * 1024 * 1024 // 500 MB
+	STTEndpoint                = "https://api.x.ai/v1/stt"
+	XAIAPIKeyEnv               = "XAI_API_KEY"
+	XAIBaseURL                 = "https://api.x.ai/v1"
+	STTCostPerHourRESTUSD      = 0.10
+	STTCostPerHourStreamingUSD = 0.20
 )
 
 type InputKind int
@@ -74,10 +75,10 @@ type RunResult struct {
 	Tasks   []TranscriptionResult
 }
 
-// calculateCost returns the estimated cost in USD for a given audio duration.
-func calculateCost(durationSeconds float64) float64 {
+// CalculateSTTCost returns the estimated REST STT cost in USD for a given audio duration.
+func CalculateSTTCost(durationSeconds float64) float64 {
 	if durationSeconds <= 0 {
 		return 0
 	}
-	return (durationSeconds / 60.0) * STTCostPerMinuteUSD
+	return (durationSeconds / 3600.0) * STTCostPerHourRESTUSD
 }
