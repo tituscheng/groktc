@@ -48,16 +48,18 @@ func TestRunnerRunExplicitFiles(t *testing.T) {
 		Stdout: &stdout,
 		Stderr: &bytes.Buffer{},
 		Stdin:  bytes.NewBuffer(nil),
-		ProberFactory: func() transcribe.MediaProber {
-			return &fakeProber{
-				durations: map[string]float64{
-					"ok.mp3":   3600,
-					"big.mp4":  7200,
-				},
-				bitrates: map[string]int64{
-					"big.mp4": 640000,
-				},
-			}
+		Estimator: &Estimator{
+			ProberFactory: func() transcribe.MediaProber {
+				return &fakeProber{
+					durations: map[string]float64{
+						"ok.mp3":  3600,
+						"big.mp4": 7200,
+					},
+					bitrates: map[string]int64{
+						"big.mp4": 640000,
+					},
+				}
+			},
 		},
 		TerminalChecker: func() bool { return false },
 		Prompt: func(_ io.Reader, _ io.Writer, _ []string) (bool, error) {
@@ -92,20 +94,19 @@ func TestRunnerRunExplicitFiles(t *testing.T) {
 func TestSummarizeResultsExcludesOverLimit(t *testing.T) {
 	t.Parallel()
 
-	results := []fileResult{
+	result := buildResult([]fileResult{
 		{DurationSec: 3600, UploadBytes: 1024, CostUSD: 0.10},
 		{OverLimit: true, DurationSec: 7200, UploadBytes: 501 * 1024 * 1024},
-	}
+	})
 
-	summary := summarizeResults(results)
-	if summary.billableFiles != 1 {
-		t.Fatalf("expected 1 billable file, got %d", summary.billableFiles)
+	if result.Summary.BillableFiles != 1 {
+		t.Fatalf("expected 1 billable file, got %d", result.Summary.BillableFiles)
 	}
-	if summary.overLimitFiles != 1 {
-		t.Fatalf("expected 1 over-limit file, got %d", summary.overLimitFiles)
+	if result.Summary.OverLimitFiles != 1 {
+		t.Fatalf("expected 1 over-limit file, got %d", result.Summary.OverLimitFiles)
 	}
-	if summary.totalCost != 0.10 {
-		t.Fatalf("expected total cost 0.10, got %f", summary.totalCost)
+	if result.Summary.EstimatedTotalCostUSD != 0.10 {
+		t.Fatalf("expected total cost 0.10, got %f", result.Summary.EstimatedTotalCostUSD)
 	}
 }
 

@@ -12,6 +12,7 @@ import (
 
 // Client is a high-level client for xAI operations.
 // It wraps tokenization, model catalog, transcription, and Markdown generation.
+// For local STT cost estimation without an API key, use [EstimateSTTCost].
 type Client struct {
 	apiKey  string
 	xai     *xai.Client

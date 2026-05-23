@@ -7,48 +7,21 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"sync"
 	"text/tabwriter"
 
 	"github.com/tituscheng/groktc/internal/confirm"
 	"github.com/tituscheng/groktc/internal/transcribe"
-
-	"golang.org/x/sync/errgroup"
 )
 
-const (
-	defaultConcurrency = 4
-	estimateWarningNote = "Note: Durations and upload sizes come from ffprobe metadata; MP4 upload size is estimated from audio bitrate. Actual billed usage may differ. Over-limit files will fail groktc transcribe until re-encoded or split."
-)
+const estimateWarningNote = "Note: Durations and upload sizes come from ffprobe metadata; MP4 upload size is estimated from audio bitrate. Actual billed usage may differ. Over-limit files will fail groktc transcribe until re-encoded or split."
 
 type Runner struct {
 	Stdout          io.Writer
 	Stderr          io.Writer
 	Stdin           io.Reader
-	ProberFactory   func() transcribe.MediaProber
+	Estimator       *Estimator
 	TerminalChecker func() bool
 	Prompt          func(io.Reader, io.Writer, []string) (bool, error)
-}
-
-type fileResult struct {
-	Path              string
-	Kind              transcribe.InputKind
-	DurationSec       float64
-	FileSize          int64
-	UploadBytes       int64
-	UploadEstimated   bool
-	OverLimit         bool
-	CostUSD           float64
-}
-
-type summaryTotals struct {
-	billableFiles     int
-	overLimitFiles    int
-	totalDuration     float64
-	totalUploadBytes  int64
-	totalCost         float64
-	ratePerHour       float64
 }
 
 type JSONOutput struct {
@@ -80,23 +53,16 @@ type JSONSummaryResult struct {
 
 func NewRunner() *Runner {
 	return &Runner{
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		Stdin:  os.Stdin,
-		ProberFactory: func() transcribe.MediaProber {
-			return transcribe.NewExecMediaProber()
-		},
+		Stdout:    os.Stdout,
+		Stderr:    os.Stderr,
+		Stdin:     os.Stdin,
+		Estimator: NewEstimator(),
 		TerminalChecker: isTerminal,
 		Prompt:          confirm.Prompt,
 	}
 }
 
 func (r *Runner) Run(ctx context.Context, opts Options) error {
-	prober := r.ProberFactory()
-	if err := prober.CheckInstalled(); err != nil {
-		return err
-	}
-
 	files, err := r.resolveFiles(opts)
 	if err != nil {
 		return err
@@ -105,16 +71,26 @@ func (r *Runner) Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("no media files were selected for estimation")
 	}
 
-	results, err := r.probeFiles(ctx, prober, files)
+	paths := make([]string, len(files))
+	for i, file := range files {
+		paths[i] = file.Path
+	}
+
+	estimator := r.Estimator
+	if estimator == nil {
+		estimator = NewEstimator()
+	}
+
+	result, err := estimator.Estimate(ctx, paths)
 	if err != nil {
 		return err
 	}
 
 	if opts.JSON {
-		return writeJSON(buildJSONOutput(results))
+		return writeJSON(toJSONOutput(result))
 	}
 
-	r.renderReport(results)
+	r.renderReport(result)
 	return nil
 }
 
@@ -159,118 +135,14 @@ func (r *Runner) resolveFiles(opts Options) ([]MediaFile, error) {
 	return files, nil
 }
 
-func (r *Runner) probeFiles(ctx context.Context, prober transcribe.MediaProber, files []MediaFile) ([]fileResult, error) {
-	results := make([]fileResult, 0, len(files))
-	var (
-		mu sync.Mutex
-		g  errgroup.Group
-	)
-	g.SetLimit(defaultConcurrency)
-
-	for _, file := range files {
-		file := file
-		g.Go(func() error {
-			info, err := os.Stat(file.Path)
-			if err != nil {
-				return fmt.Errorf("stat %q: %w", file.Path, err)
-			}
-
-			probe, err := prober.ProbeMedia(ctx, file.Path)
-			if err != nil {
-				return fmt.Errorf("probe %q: %w", file.Path, err)
-			}
-
-			sizeCheck := transcribe.CheckSTTUploadSize(file.Kind, info.Size(), probe.DurationSeconds, probe.AudioBitrate)
-			costUSD := 0.0
-			if !sizeCheck.OverLimit {
-				costUSD = transcribe.CalculateSTTCost(probe.DurationSeconds)
-			}
-
-			uploadEstimated := sizeCheck.Estimated || file.Kind == transcribe.KindMP4
-
-			result := fileResult{
-				Path:            file.Path,
-				Kind:            file.Kind,
-				DurationSec:     probe.DurationSeconds,
-				FileSize:        info.Size(),
-				UploadBytes:     sizeCheck.UploadBytes,
-				UploadEstimated: uploadEstimated,
-				OverLimit:       sizeCheck.OverLimit,
-				CostUSD:         costUSD,
-			}
-
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
-			return nil
-		})
-	}
-
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Path < results[j].Path
-	})
-
-	return results, nil
-}
-
-func summarizeResults(results []fileResult) summaryTotals {
-	totals := summaryTotals{ratePerHour: transcribe.STTCostPerHourRESTUSD}
-	for _, result := range results {
-		if result.OverLimit {
-			totals.overLimitFiles++
-			continue
-		}
-		totals.billableFiles++
-		totals.totalDuration += result.DurationSec
-		totals.totalUploadBytes += result.UploadBytes
-		totals.totalCost += result.CostUSD
-	}
-	return totals
-}
-
-func buildJSONOutput(results []fileResult) JSONOutput {
-	summary := summarizeResults(results)
-	files := make([]JSONFileResult, 0, len(results))
-	for _, result := range results {
-		files = append(files, JSONFileResult{
-			Path:            result.Path,
-			Kind:            kindName(result.Kind),
-			DurationSeconds: result.DurationSec,
-			FileSizeBytes:   result.FileSize,
-			UploadBytes:     result.UploadBytes,
-			UploadEstimated: result.UploadEstimated,
-			OverLimit:       result.OverLimit,
-			CostUSD:         result.CostUSD,
-			Billable:        !result.OverLimit,
-		})
-	}
-
-	return JSONOutput{
-		Files: files,
-		Summary: JSONSummaryResult{
-			Files:                 len(results),
-			BillableFiles:         summary.billableFiles,
-			OverLimitFiles:        summary.overLimitFiles,
-			TotalDurationSeconds:  summary.totalDuration,
-			TotalUploadBytes:      summary.totalUploadBytes,
-			RatePerHourUSD:        summary.ratePerHour,
-			EstimatedTotalCostUSD: summary.totalCost,
-		},
-	}
-}
-
 func writeJSON(output JSONOutput) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(output)
 }
 
-func (r *Runner) renderReport(results []fileResult) {
-	summary := summarizeResults(results)
+func (r *Runner) renderReport(result Result) {
+	summary := result.Summary
 
 	tw := tabwriter.NewWriter(r.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(
@@ -282,10 +154,10 @@ func (r *Runner) renderReport(results []fileResult) {
 		colorHeader("STATUS"),
 		colorHeader("EST. COST"),
 	)
-	for _, result := range results {
+	for _, file := range result.Files {
 		status := colorOK("OK")
-		cost := colorValue(formatUSD(result.CostUSD))
-		if result.OverLimit {
+		cost := colorValue(formatUSD(file.CostUSD))
+		if file.OverLimit {
 			status = colorWarning("OVER LIMIT")
 			cost = colorMuted("-")
 		}
@@ -293,9 +165,9 @@ func (r *Runner) renderReport(results []fileResult) {
 		fmt.Fprintf(
 			tw,
 			"%s\t%s\t%s\t%s\t%s\n",
-			result.Path,
-			formatDuration(result.DurationSec),
-			formatUploadSize(result.UploadBytes, result.UploadEstimated),
+			file.Path,
+			formatDuration(file.DurationSeconds),
+			formatUploadSize(file.UploadBytes, file.UploadEstimated),
 			status,
 			cost,
 		)
@@ -305,17 +177,17 @@ func (r *Runner) renderReport(results []fileResult) {
 	fmt.Fprintln(r.Stdout)
 	summaryTable := tabwriter.NewWriter(r.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintf(summaryTable, "%s\t%s\n", colorHeader("METRIC"), colorHeader("VALUE"))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Files"), colorValue(fmt.Sprintf("%d", len(results))))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Billable files"), colorValue(fmt.Sprintf("%d", summary.billableFiles)))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Over limit (>500 MB upload)"), colorWarning(fmt.Sprintf("%d", summary.overLimitFiles)))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Total duration (billable)"), colorValue(formatDuration(summary.totalDuration)))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Total upload size (billable)"), colorValue(formatBytes(summary.totalUploadBytes)))
-	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Rate"), colorValue(fmt.Sprintf("$%.2f / hr (REST)", summary.ratePerHour)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Files"), colorValue(fmt.Sprintf("%d", summary.Files)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Billable files"), colorValue(fmt.Sprintf("%d", summary.BillableFiles)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Over limit (>500 MB upload)"), colorWarning(fmt.Sprintf("%d", summary.OverLimitFiles)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Total duration (billable)"), colorValue(formatDuration(summary.TotalDurationSeconds)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Total upload size (billable)"), colorValue(formatBytes(summary.TotalUploadBytes)))
+	fmt.Fprintf(summaryTable, "%s\t%s\n", colorLabel("Rate"), colorValue(fmt.Sprintf("$%.2f / hr (REST)", summary.RatePerHourUSD)))
 	_ = summaryTable.Flush()
 
 	fmt.Fprintln(r.Stdout, colorMuted("------------------------------------------------------------"))
 	totalSummary := tabwriter.NewWriter(r.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintf(totalSummary, "%s\t%s\n", colorLabel("Estimated total cost"), colorTotal(formatUSD(summary.totalCost)))
+	fmt.Fprintf(totalSummary, "%s\t%s\n", colorLabel("Estimated total cost"), colorTotal(formatUSD(summary.EstimatedTotalCostUSD)))
 	_ = totalSummary.Flush()
 	fmt.Fprintf(r.Stdout, "\n%s\n", colorWarning(estimateWarningNote))
 }

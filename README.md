@@ -203,6 +203,21 @@ if err != nil {
 fmt.Printf("Tokens: %d\n", count)
 ```
 
+### STT cost estimation
+
+Estimate transcription cost locally with ffprobe — no API key required:
+
+```go
+result, err := groktc.EstimateSTTCost(ctx, "interview.mp3", "podcast.mp4")
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Printf("Estimated total: $%.4f\n", result.Summary.EstimatedTotalCostUSD)
+for _, file := range result.Files {
+    fmt.Printf("%s: $%.4f (%t billable)\n", file.Path, file.CostUSD, file.Billable)
+}
+```
+
 ### Model catalog
 
 ```go
