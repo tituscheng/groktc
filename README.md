@@ -1,6 +1,6 @@
 # groktc
 
-A Go CLI tool and library for working with the **xAI API** (Grok). Convert transcripts to Markdown, transcribe audio/video, estimate token costs, and manage model selection — from the terminal or from your own Go code.
+A Go CLI tool and library for working with the **xAI API** (Grok). Convert transcripts to Markdown, transcribe audio/video, estimate STT and token costs, and manage model selection — from the terminal or from your own Go code.
 
 ---
 
@@ -22,7 +22,7 @@ go get github.com/tituscheng/groktc/pkg/groktc
 
 ## Configuration
 
-All commands and library calls require an xAI API key.
+All commands and library calls require an xAI API key, except `groktc estimate` which runs locally via ffprobe.
 
 ```bash
 export XAI_API_KEY="your-api-key-here"
@@ -78,6 +78,30 @@ groktc transcribe audio.mp3 --force
 
 > A file is skipped only when **both** its `.txt` and `.vtt` already exist; if
 > either is missing the file is re-transcribed. Use `--force` to always overwrite.
+
+### `groktc estimate` — Estimate STT transcription cost
+
+Probe `.mp3` and `.mp4` files locally with **ffprobe** and print a cost summary
+using xAI REST STT pricing ($0.10/hr). No API key is required.
+
+```bash
+# Estimate cost for one file
+groktc estimate interview.mp3
+
+# Estimate all media files in the current directory
+groktc estimate
+
+# Skip the interactive confirmation prompt
+groktc estimate --yes
+
+# Output results as JSON
+groktc estimate interview.mp3 podcast.mp4 --json
+```
+
+The report includes per-file duration, upload size, and estimated cost. Files
+whose upload payload would exceed the **500 MB** STT limit are flagged as
+`OVER LIMIT` and excluded from the total (MP4 sizes are estimated from audio
+bitrate).
 
 ### `groktc tokenize` — Estimate token usage and cost
 
@@ -212,6 +236,7 @@ For advanced use cases, import individual packages directly:
 - **Go 1.26.2** or later
 - **xAI API key** ([x.ai](https://x.ai))
 - **ffmpeg** (optional, for MP4 and YouTube URL transcription)
+- **ffprobe** (optional, for `groktc estimate`; bundled with ffmpeg)
 
 ---
 
@@ -223,6 +248,7 @@ groktc/
 ├── internal/       # Private implementation (not importable externally)
 │   ├── markdown/   # Markdown conversion engine
 │   ├── model/      # Model catalog and selection
+│   ├── estimate/   # STT cost estimation
 │   ├── tokenize/   # Token estimation
 │   ├── transcribe/ # Audio/video transcription pipeline
 │   └── ...
